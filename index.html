@@ -207,10 +207,9 @@ class Plyr{
 
   strike(tgt){
     this.atk=true;this.at=15;this.ac=25;
-    const sd=this.cx<tgt.cx?1:-1;
-    const hx=sd===1?this.cx:this.cx-120;
+    const hx=this.fac===1?this.cx:this.cx-120;
     if(ov({x:hx,y:this.y,w:120,h:this.h},tgt.rect)){
-      tgt.hp=Math.max(0,tgt.hp-10);tgt.ft=5;hs=3;sk=8;cc++;ct=90;tgt.kb=25*sd;
+      tgt.hp=Math.max(0,tgt.hp-10);tgt.ft=5;hs=3;sk=8;cc++;ct=90;tgt.kb=25*this.fac;
       for(let i=0;i<15;i++)pts.push(new Pt(tgt.cx,tgt.cy,C.ORANGE));
       for(let i=0;i<10;i++)pts.push(new Pt(tgt.cx,tgt.cy,C.YELLOW));
       if(this.nm==='blue')snd('bh');else snd('rh');
@@ -266,7 +265,7 @@ function launch(){
   document.getElementById('game-wrap').style.display='flex';
 
   const badge=document.getElementById('player-badge');
-  badge.textContent=myPlayer===1?'🔵 YOU ARE BLUE  [A D W F R]':'🔴 YOU ARE RED  [← → ↑ M O]';
+  badge.textContent=myPlayer===1?'🔵 PLAYER 1 - BLUE  [A D W F R]':'🔴 PLAYER 2 - RED  [← → ↑ M O]';
   badge.style.color=myPlayer===1?'#3264ff':'#ff5050';
 
   canvas=document.getElementById('gameCanvas');
