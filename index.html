@@ -50,7 +50,7 @@
   </div>
   <div id="status">Pick a room to start matchmaking</div>
   <label>Server URL</label>
-  <input id="ws-input" value="wss://valeleu.onrender.com">
+  <input id="ws-input" value="wss://strong-bravery-production-da34.up.railway.app">
 </div>
 
 <div id="game-wrap">
@@ -206,6 +206,7 @@ class Plyr{
   }
 
   strike(tgt){
+    if(this.remote)return;
     this.atk=true;this.at=15;this.ac=25;
     const hx=this.fac===1?this.cx:this.cx-120;
     if(ov({x:hx,y:this.y,w:120,h:this.h},tgt.rect)){
@@ -245,13 +246,18 @@ function applyRemote(d){
   if(!p1||!p2)return;
   const them=d.player===1?p1:p2;
   them.ap(d.ps);
+  if(d.os){
+    const other=d.player===1?p2:p1;
+    other.ap(d.os);
+  }
   for(let i=projs.length-1;i>=0;i--){if(projs[i].ownN===d.player)projs.splice(i,1);}
   if(d.pj){for(const pd of d.pj){const pr=new Proj(pd.x,pd.y,pd.spd>0?1:-1,d.player===1?p1:p2);pr.x=pd.x;pr.y=pd.y;pr.spd=pd.spd;pr.ang=pd.ang;pr.ownN=d.player;projs.push(pr);}}
 }
 
 function broadcast(){
   const me=myPlayer===1?p1:p2;
-  send({player:myPlayer,ps:me.st(),pj:projs.filter(p=>p.ownN===myPlayer).map(p=>({x:p.x,y:p.y,spd:p.spd,ang:p.ang}))});
+  const other=myPlayer===1?p2:p1;
+  send({player:myPlayer,ps:me.st(),os:other.st(),pj:projs.filter(p=>p.ownN===myPlayer).map(p=>({x:p.x,y:p.y,spd:p.spd,ang:p.ang}))});
 }
 
 // ── Boot ───────────────────────────────────────────────────
