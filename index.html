@@ -77,13 +77,14 @@ const C={RED:'#ff0000',WHITE:'#ffffff',YELLOW:'#ffff00',ORANGE:'#ffa500',BLUE:'#
 const isMobile=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)||window.innerWidth<768;
 
 // ── Networking ─────────────────────────────────────────────
-let ws,myPlayer=0;
+let ws,myPlayer=0,currentRoom='',reconnectAttempts=0;
 
 function joinRoom(room){
+  currentRoom=room;
   const url=document.getElementById('ws-input').value.trim();
   setStatus('Connecting...');
   ws=new WebSocket(url);
-  ws.onopen=()=>{ ws.send(JSON.stringify({type:'join',room})); setStatus('Waiting for opponent...'); };
+  ws.onopen=()=>{ reconnectAttempts=0; ws.send(JSON.stringify({type:'join',room})); setStatus('Waiting for opponent...'); };
   ws.onmessage=(e)=>{
     const d=JSON.parse(e.data);
     if(d.type==='assigned'){ myPlayer=d.player; setStatus(`You are Player ${d.player}. Waiting for opponent...`); }
@@ -93,7 +94,28 @@ function joinRoom(room){
     if(d.type==='opponent_left'){ showMsg('Opponent left. Waiting...'); }
   };
   ws.onerror=()=>setStatus('Connection error. Check server URL.');
-  ws.onclose=()=>{ if(!gameRunning) setStatus('Disconnected.'); };
+  ws.onclose=()=>{
+    if(gameRunning){showMsg('Disconnected. Reconnecting...');setTimeout(()=>tryReconnect(),2000);}
+    else if(reconnectAttempts<3){reconnectAttempts++;setStatus('Disconnected. Reconnecting...');setTimeout(()=>joinRoom(currentRoom),2000);}
+    else setStatus('Connection lost. Please refresh.');
+  };
+}
+function tryReconnect(){
+  if(reconnectAttempts>=5)return;
+  reconnectAttempts++;
+  setStatus('Reconnecting...');
+  const url=document.getElementById('ws-input').value.trim();
+  ws=new WebSocket(url);
+  ws.onopen=()=>{ reconnectAttempts=0; ws.send(JSON.stringify({type:'join',room:currentRoom})); setStatus('Reconnected! Waiting for opponent...'); gameRunning=false; };
+  ws.onmessage=(e)=>{
+    const d=JSON.parse(e.data);
+    if(d.type==='assigned'){ myPlayer=d.player; setStatus(`You are Player ${d.player}. Waiting for opponent...`); }
+    if(d.type==='start')   { startGame(); }
+    if(d.type==='full')    { setStatus('Room full! Try another.'); ws.close(); }
+    if(d.type==='state')   { applyRemote(d); }
+    if(d.type==='opponent_left'){ showMsg('Opponent left. Waiting...'); }
+  };
+  ws.onclose=()=>{ if(reconnectAttempts<5)setTimeout(()=>tryReconnect(),3000); };
 }
 function setStatus(t){ document.getElementById('status').textContent=t; }
 function send(obj){ if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:'state',...obj})); }
@@ -177,6 +199,7 @@ class Plyr{
 
   upd(tgt){
     this.pnc=false;
+    if(hs>0&&!this.remote){this.ft=5;this.pnc=true;}
     if(this.remote){
       this.x+=(this.rx-this.x)*.35;
       this.y+=(this.ry-this.y)*.35;
@@ -236,6 +259,7 @@ function ov(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 // ── Game state ─────────────────────────────────────────────
 let canvas,ctx,p1,p2,pts=[],projs=[];
 let hs=0,sk=0,cc=0,ct=0;
+let frameCount=0;
 let clouds=[],stars=[];
 let gameRunning=false,gameOver=false,winTxt='',winTmr=0;
 let msgTxt='',msgTmr=0;
@@ -302,13 +326,14 @@ function launch(){
 
 // ── Loop ───────────────────────────────────────────────────
 function loop(){
-  update();render();broadcast();
+  update();render();
+  frameCount++;
+  if(frameCount%3===0)broadcast();
   requestAnimationFrame(loop);
 }
 
 function update(){
   if(gameOver){winTmr--;if(winTmr<=0){gameOver=false;reset();}return;}
-  if(hs>0){hs--;return;}
 
   p1.upd(p2);p2.upd(p1);
 
@@ -331,6 +356,7 @@ function update(){
   }
 
   if(ct>0){ct--;if(ct===0)cc=0;}
+  if(hs>0)hs--;
   for(let i=pts.length-1;i>=0;i--){pts[i].upd();if(pts[i].life<=0)pts.splice(i,1);}
   for(const c of clouds){c.x-=c.spd;if(c.x<-100){c.x=SW+50;c.y=50+Math.random()*150;}}
   for(const s of stars){s.x-=s.spd;if(s.x<0)s.x=SW;}
